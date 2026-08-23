@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>spz-chat</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="root">
+    <div id="panel" class="panel">
+
+      <div id="log" class="log"></div>
+
+      <div id="bar" class="bar hidden">
+        <div class="input-module">
+          <input id="input" class="input" type="text" maxlength="200" placeholder="Message everyone..." autocomplete="off">
+        </div>
+
+        <div id="suggest" class="suggest hidden"></div>
+
+        <div class="chips">
+          <button class="chip active" data-ch="global">Global</button>
+          <button class="chip" data-ch="crew">Crew</button>
+          <button class="chip" data-ch="dm">DM</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
