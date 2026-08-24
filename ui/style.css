@@ -5,12 +5,13 @@
 
 :root {
   --line:        rgba(255, 255, 255, 0.14);
-  --line-strong: rgba(255, 98, 0, 0.5);
+  --line-strong: rgba(var(--accent-rgb), 0.5);
   --scrim:       rgba(6, 6, 8, 0.58);
   --scrim-soft:  rgba(6, 6, 8, 0.34);
   --field:       rgba(4, 4, 5, 0.62);
 
   --accent:      #ff6200;
+  --accent-rgb:  255, 98, 0;
   --accent-2:    #ff9142;
   --crew:        #ffb454;
   --dm:          #ff5fb8;
@@ -179,6 +180,6 @@ html, body { width: 100vw; height: 100vh; background: transparent; overflow: hid
   transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
 }
 .chip:hover { color: var(--gray-2); }
-.chip.active { color: var(--gray-1); background: rgba(255, 98, 0, 0.1); border-bottom-color: var(--accent); }
+.chip.active { color: var(--gray-1); background: rgba(var(--accent-rgb), 0.1); border-bottom-color: var(--accent); }
 .chip[data-ch="crew"].active { background: rgba(255, 180, 84, 0.1); border-bottom-color: var(--crew); }
 .chip[data-ch="dm"].active { background: rgba(255, 95, 184, 0.1); border-bottom-color: var(--dm); }

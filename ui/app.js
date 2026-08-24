@@ -256,6 +256,33 @@
     }
   });
 
+  // ── Base theme (server.cfg spz_theme_* convars, pushed from spz-core) ─────
+  // Keys map to this page's CSS variable names; unknown/missing keys are a
+  // no-op since the stylesheet's own :root defaults still apply.
+  const THEME_VARS = {
+    accent: '--accent',
+    accent2: '--accent-2',
+    danger: '--danger',
+    gold: '--system',
+  };
+  // Some rgba(...) glows/tints reference the accent as raw components rather
+  // than the solid hex, so they can carry an alpha — keep those in sync too.
+  const THEME_RGB_VARS = { accent: '--accent-rgb' };
+  function hexToRgbTriplet(hex) {
+    const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex || '');
+    return m ? `${parseInt(m[1], 16)}, ${parseInt(m[2], 16)}, ${parseInt(m[3], 16)}` : null;
+  }
+  function applyTheme(theme) {
+    if (!theme) return;
+    for (const key in THEME_VARS) {
+      if (theme[key]) document.documentElement.style.setProperty(THEME_VARS[key], theme[key]);
+    }
+    for (const key in THEME_RGB_VARS) {
+      const rgb = theme[key] && hexToRgbTriplet(theme[key]);
+      if (rgb) document.documentElement.style.setProperty(THEME_RGB_VARS[key], rgb);
+    }
+  }
+
   // ── NUI messages from client Lua ──────────────────────────────────────────
 
   window.addEventListener('message', (e) => {
@@ -265,5 +292,6 @@
     else if (d.action === 'message') addLine(d.payload);
     else if (d.action === 'commands') commands = d.list || [];
     else if (d.action === 'online') players = d.list || [];
+    else if (d.action === 'theme') applyTheme(d.theme);
   });
 })();
