@@ -81,7 +81,10 @@ RegisterNetEvent('chat:addMessage', function(data)
     local text = data.args and table.concat(data.args, ' ') or (data.template or '')
     text = text:gsub('%^%d', '') -- strip default-chat ^N colour codes
     if text == '' then return end
-    SendNUIMessage({ action = 'message', payload = { channel = 'system', text = text, ts = os.time() } })
+    -- No `ts` here: the `os` library does not exist in FiveM's client Lua
+    -- sandbox, and the UI never reads the field anyway (server-sent payloads
+    -- carry it, where os.time() is valid).
+    SendNUIMessage({ action = 'message', payload = { channel = 'system', text = text } })
 end)
 
 -- ── NUI callbacks ─────────────────────────────────────────────────────────────
@@ -107,7 +110,7 @@ RegisterNUICallback('send', function(d, cb)
 
     local res = lib.callback.await('spz-chat:send', false, { text = text })
     if not (res and res.ok) and res and res.error then
-        SendNUIMessage({ action = 'message', payload = { channel = 'error', text = res.error, ts = os.time() } })
+        SendNUIMessage({ action = 'message', payload = { channel = 'error', text = res.error } })
     end
     cb(1)
 end)
