@@ -2,7 +2,7 @@
 
 Config = {}
 
-Config.Keybind        = 't'    -- opens chat input
+Config.Keybind        = 't'    -- opens chat input (registry: Docs/keybinds.md)
 Config.MaxLength      = 200    -- max characters per message
 Config.MinIntervalMs  = 350    -- flood guard between messages
 Config.HistorySize    = 100    -- messages kept in the NUI log
