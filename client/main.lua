@@ -48,6 +48,35 @@ end)
 
 AddEventHandler('SPZ:themeUpdated', function(theme) pushTheme(theme) end)
 
+-- ── Minimap anchor ──────────────────────────────────────────────────────────
+-- The chat docks beside the GTA minimap (same rect maths as spz-speedcam).
+-- Safezone / resolution can change at runtime, so re-check periodically.
+local function getMinimapRect()
+    local safeZone    = GetSafeZoneSize()
+    local aspectRatio = GetAspectRatio(false)
+    local resX, resY  = GetActiveScreenResolution()
+
+    local width   = (resX / (4 * aspectRatio)) / resX
+    local height  = (resY / 5.674) / resY
+    local leftX   = (resX * (0.05 * (math.abs(safeZone - 1.0) * 10))) / resX
+    local bottomY = 1.0 - (resY * (0.05 * (math.abs(safeZone - 1.0) * 10))) / resY
+
+    return { left = leftX, width = width, top = bottomY - height, bottom = bottomY }
+end
+
+CreateThread(function()
+    local last
+    while true do
+        local m = getMinimapRect()
+        local key = ('%f|%f|%f|%f'):format(m.left, m.width, m.top, m.bottom)
+        if key ~= last then
+            last = key
+            SendNUIMessage({ action = 'minimap', rect = m })
+        end
+        Wait(2000)
+    end
+end)
+
 local function openChat()
     if open then return end
     open = true

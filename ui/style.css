@@ -4,11 +4,15 @@
 @font-face { font-family: 'Panchang'; src: url('fonts/Panchang-Extrabold.ttf') format('truetype'); font-weight: 800; font-display: swap; }
 
 :root {
-  --line:        rgba(255, 255, 255, 0.14);
-  --line-strong: rgba(var(--accent-rgb), 0.5);
-  --scrim:       rgba(6, 6, 8, 0.58);
-  --scrim-soft:  rgba(6, 6, 8, 0.34);
-  --field:       rgba(4, 4, 5, 0.62);
+  /* Island surface — every piece (row, chip, suggest list, input, icon)
+     is its own floating card built from these. */
+  --island:        rgba(12, 12, 15, 0.78);
+  --island-soft:   rgba(12, 12, 15, 0.56);
+  --island-edge:   rgba(255, 255, 255, 0.08);
+  --island-hi:     rgba(255, 255, 255, 0.06);
+  --island-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+  --island-r:      12px;
+  --island-gap:    6px;
 
   --accent:      #ff6200;
   --accent-rgb:  255, 98, 0;
@@ -23,7 +27,17 @@
   --gray-3:      #97979f;
   --gray-4:      #66666d;
 
-  --radius:      2px;
+  /* Minimap rect — defaults approximate 16:9 at full safezone; the client
+     pushes the real values (`minimap` NUI message). */
+  --map-left:    1.5vw;
+  --map-w:       14.1vw;
+  --map-h:       17.6vh;
+  --map-bottom:  2vh;
+
+  --dock-gap:    10px;                         /* space between map and chat */
+  --dock-w:      max(var(--map-w), 360px);      /* full bar width, ≈ map width per wireframe */
+  --field-h:     40px;                         /* launcher icon / input height */
+  --mid-w:       100px;                        /* "small message box" morph step */
 
   --font-body:   'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-disp:   'Panchang', 'Inter', sans-serif;
@@ -34,152 +48,283 @@ html, body { width: 100vw; height: 100vh; background: transparent; overflow: hid
 
 #root { position: fixed; inset: 0; pointer-events: none; }
 
-.panel {
+/* Shared island look. */
+.who, .msg, .chip, .suggest, .launcher {
+  background: var(--island);
+  border: 1px solid var(--island-edge);
+  border-radius: var(--island-r);
+  box-shadow: var(--island-shadow), inset 0 1px 0 var(--island-hi);
+}
+
+/* ── Dock ────────────────────────────────────────────────────────
+   Bottom-aligned with the minimap, sitting just to its right. Stack
+   grows upward: log → bar (suggest + chips) → launcher/input. */
+.dock {
   position: absolute;
-  left: 22px; top: 22px;
-  width: 440px;
+  left: calc(var(--map-left) + var(--map-w) + var(--dock-gap));
+  bottom: var(--map-bottom);
+  width: var(--dock-w);
   display: flex; flex-direction: column;
-  gap: 10px;
+  gap: var(--island-gap);
 }
 
 /* ── Log ─────────────────────────────────────────────────────────
-   No card, no fill — every line is text sitting directly on the
-   game world with a tight scrim clipped to its own width, the way
-   Forza / COD overlay chat reads: legible, but never a floating
-   panel. */
+   Each message is its own island; the stack feathers out at the top
+   once there's more history than fits (wireframe frame 15). Padding
+   leaves room for the island shadows inside the scroll box. */
 .log {
   display: flex; flex-direction: column-reverse;
-  gap: 4px;
-  max-height: 260px;
+  gap: var(--island-gap);
+  max-height: max(calc(var(--map-h) - var(--field-h) - var(--island-gap)), 160px);
+  margin: -8px -8px 0; padding: 8px 8px 0;
   overflow: hidden;
+  scrollbar-width: none;
   transition: opacity 400ms ease;
-  opacity: 0.92;
+  opacity: 0.94;
 }
-.panel.open .log { opacity: 1; }
-.panel.faded .log { opacity: 0; }
+.log::-webkit-scrollbar { display: none; }
+.log.overflow {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 48px);
+          mask-image: linear-gradient(to bottom, transparent 0, #000 48px);
+}
+.dock.open .log { opacity: 1; overflow-y: auto; pointer-events: auto; transition: none; }
+.dock.faded .log { opacity: 0; }
 
+/* A row is just a transparent track holding two islands side by side:
+   profile (avatar + name) on the left, message filling the rest. */
 .line {
-  display: flex; align-items: center; gap: 7px;
-  width: fit-content; max-width: 100%;
-  padding: 3px 8px 3px 6px;
-  background: var(--scrim);
-  border-left: 2px solid var(--gray-4);
-  font-size: 13px; line-height: 1.5;
-  animation: lineIn 140ms ease-out;
+  --ch: var(--accent);
+  flex-shrink: 0;
+  display: flex; align-items: stretch; gap: var(--island-gap);
+  width: 100%;
+  font-size: 13px; line-height: 1.45;
+  animation: lineIn 200ms cubic-bezier(.2, .8, .2, 1);
 }
-@keyframes lineIn { from { opacity: 0; transform: translateX(-3px); } to { opacity: 1; transform: none; } }
+@keyframes lineIn { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }
+.line.crew   { --ch: var(--crew); }
+.line.dm     { --ch: var(--dm); }
+.line.system { --ch: var(--system); }
+.line.error  { --ch: var(--danger); }
 
-.line.global { border-left-color: var(--accent); }
-.line.crew   { border-left-color: var(--crew); }
-.line.dm     { border-left-color: var(--dm); }
-.line.system { border-left-color: var(--system); background: var(--scrim-soft); }
-.line.error  { border-left-color: var(--danger); background: var(--scrim-soft); }
+/* Avatar island — a square tile, pinned to the top of the row so it
+   stays square when the message wraps. */
+.who {
+  flex-shrink: 0;
+  align-self: flex-start;
+  display: flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px;
+  padding: 0;
+  overflow: hidden;
+}
+.who .av, .who .av-fallback { width: 24px; height: 24px; border-radius: 7px; font-size: 10px; }
+
+/* Message island. Channel pip sits at its start so message-only rows
+   (system / error) still show their colour. */
+.msg {
+  flex: 1; min-width: 0;
+  display: flex; align-items: center; gap: 8px;
+  min-height: 34px;
+  padding: 5px 12px 5px 10px;
+  word-break: break-word;
+}
+.msg::before {
+  content: '';
+  flex-shrink: 0;
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--ch);
+}
+.who + .msg::before { display: none; }   /* profile island already carries the colour */
+.line.system .msg { background: var(--island-soft); }
+.line.error .msg  { background: var(--island-soft); border-color: rgba(255, 59, 78, 0.25); }
 
 /* ── Avatars ────────────────────────────────────────────────────── */
 .av, .av-fallback {
   flex-shrink: 0;
-  width: 19px; height: 19px;
-  border-radius: 3px;
+  width: 20px; height: 20px;
+  border-radius: 6px;
 }
 .av { object-fit: cover; background: #000; }
 .av-fallback {
   display: flex; align-items: center; justify-content: center;
   font-family: var(--font-disp); font-size: 9px; font-weight: 800;
   color: var(--gray-1);
-  background: #1a1a1d;
+  background: rgba(255, 255, 255, 0.08);
 }
 
-.line-body { min-width: 0; word-break: break-word; }
-.line.system .line-body, .line.error .line-body { padding: 1px 0; }
-.line.system { color: var(--system); }
-.line.error { color: var(--danger); }
+.line-body { min-width: 0; }
 
 .line .tag {
   display: inline-block;
-  font-family: var(--font-disp); font-size: 9px; font-weight: 700;
+  font-family: var(--font-disp); font-size: 8px; font-weight: 700;
   letter-spacing: 0.1em; text-transform: uppercase;
-  margin-right: 5px;
-  color: var(--gray-4);
+  margin-right: 6px; padding: 2px 6px;
+  border-radius: 999px;
+  vertical-align: 1px;
+  color: var(--ch);
+  background: rgba(255, 255, 255, 0.06);
 }
-.line.crew .tag { color: var(--crew); }
-.line.dm .tag { color: var(--dm); }
 
-.line .from { font-weight: 700; color: var(--gray-1); }
-.line .crewtag { color: var(--gray-4); font-weight: 700; }
+.line .from { font-weight: 700; color: var(--gray-1); margin-right: 2px; }
+.line .crewtag { color: var(--gray-4); font-weight: 700; font-size: 11px; margin-right: 2px; }
 .line .text { color: var(--gray-2); }
+.line.system .text { color: var(--system); }
+.line.error .text { color: var(--danger); }
 .line.crew .from { color: var(--crew); }
 .line.dm .from { color: var(--dm); }
 
-/* ── Input bar ──────────────────────────────────────────────────── */
+/* ── Bar (suggestions + channel chips) ──────────────────────────── */
 .bar {
   pointer-events: auto;
-  display: flex; flex-direction: column; gap: 8px;
+  display: flex; flex-direction: column; gap: var(--island-gap);
 }
 .bar.hidden { display: none; }
 
-.input-module {
-  display: flex; align-items: center;
-  background: var(--field);
-  border: 1px solid var(--line);
-  border-bottom: 2px solid var(--accent);
-  border-radius: var(--radius);
-  padding: 0 10px;
-  animation: barIn 120ms ease-out;
-}
-.input-module:focus-within { border-color: rgba(255, 255, 255, 0.22); border-bottom-color: var(--accent-2); }
-@keyframes barIn { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+@keyframes barIn { from { opacity: 0; transform: translateY(4px) scale(.98); } to { opacity: 1; transform: none; } }
 
+/* ── Launcher → input morph ─────────────────────────────────────
+   One island does the whole transition: icon → small box → full-width
+   input (frames 12 → 13 → 14). Width is keyframed so the two steps
+   get their own easing. */
+.launcher {
+  position: relative;
+  flex-shrink: 0;
+  width: var(--field-h); height: var(--field-h);
+  overflow: hidden;
+  pointer-events: auto;
+  transition: border-color 220ms ease, box-shadow 220ms ease;
+}
+.dock.open .launcher {
+  width: 100%;
+  border-color: rgba(var(--accent-rgb), 0.45);
+  box-shadow: var(--island-shadow), inset 0 1px 0 var(--island-hi), 0 0 0 3px rgba(var(--accent-rgb), 0.08);
+  transition-delay: 240ms;
+  animation: launcherOpen 460ms both;
+}
+.dock.closing .launcher { animation: launcherClose 340ms both; }
+
+@keyframes launcherOpen {
+  0%   { width: var(--field-h); animation-timing-function: cubic-bezier(.3, 1.3, .6, 1); }
+  30%  { width: var(--mid-w);   animation-timing-function: cubic-bezier(.7, 0, .2, 1); }
+  100% { width: 100%; }
+}
+@keyframes launcherClose {
+  0%   { width: 100%;           animation-timing-function: cubic-bezier(.6, 0, .4, 1); }
+  65%  { width: var(--mid-w);   animation-timing-function: cubic-bezier(.3, 0, .2, 1); }
+  100% { width: var(--field-h); }
+}
+
+.launcher-icon {
+  position: absolute; left: 0; top: 0;
+  width: calc(var(--field-h) - 2px); height: calc(var(--field-h) - 2px);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--gray-2);
+  transition: opacity 180ms ease 160ms, transform 260ms cubic-bezier(.2, .8, .2, 1) 160ms;
+}
+.dock.open .launcher-icon {
+  opacity: 0; transform: scale(.6);
+  transition: opacity 120ms ease, transform 160ms ease;
+}
+
+.unread-dot {
+  position: absolute; top: 8px; right: 8px;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px rgba(12, 12, 15, 1), 0 0 8px rgba(var(--accent-rgb), 0.7);
+  transform: scale(0);
+  transition: transform 200ms cubic-bezier(.3, 1.6, .6, 1);
+}
+.dock.unread .unread-dot { transform: scale(1); }
+
+.input-module {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  width: calc(var(--dock-w) - 2px);   /* fixed so text never reflows mid-morph */
+  display: flex; align-items: center; gap: 9px;
+  padding: 0 7px;
+  opacity: 0;
+  transition: opacity 90ms ease;
+}
+.dock.open .input-module { opacity: 1; transition: opacity 200ms ease 300ms; }
+
+/* Prompt badge — a tiny accent island inside the input. */
 .input-module::before {
   content: '>';
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  width: 24px; height: 24px;
+  border-radius: 8px;
+  background: rgba(var(--accent-rgb), 0.16);
   color: var(--accent-2);
-  font-family: var(--font-disp); font-weight: 800; font-size: 13px;
-  margin-right: 7px;
+  font-family: var(--font-disp); font-weight: 800; font-size: 11px;
+}
+/* Enter keycap hint on the right. */
+.input-module::after {
+  content: 'ENTER';
+  flex-shrink: 0;
+  padding: 4px 7px;
+  border-radius: 6px;
+  border: 1px solid var(--island-edge);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--gray-4);
+  font-family: var(--font-disp); font-size: 8px; font-weight: 700; letter-spacing: 0.1em;
 }
 .input {
-  flex: 1; width: 100%;
+  flex: 1; width: 100%; min-width: 0;
   background: none; border: none; outline: none;
   font-family: var(--font-body); font-size: 14px; color: var(--gray-1);
-  padding: 10px 0;
+  padding: 0;
+  height: 100%;
 }
 .input::placeholder { color: var(--gray-4); }
 
 /* ── Suggestions ────────────────────────────────────────────────── */
 .suggest {
-  max-height: 176px; overflow-y: auto;
-  background: var(--field);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  animation: barIn 120ms ease-out;
+  max-height: 184px; overflow-y: auto;
+  padding: 4px;
+  scrollbar-width: none;
+  animation: barIn 140ms cubic-bezier(.2, .8, .2, 1);
 }
+.suggest::-webkit-scrollbar { display: none; }
 .suggest.hidden { display: none; }
 .sg-item {
   display: flex; align-items: center; gap: 9px;
-  padding: 7px 10px;
-  border-left: 2px solid transparent;
+  padding: 7px 9px;
+  border-radius: 8px;
   font-size: 12.5px; color: var(--gray-3);
   cursor: pointer;
 }
 .sg-item .sg-main { color: var(--gray-2); font-weight: 700; }
 .sg-item .sg-hint { margin-left: auto; color: var(--gray-4); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; }
-.sg-item.active { background: rgba(255, 255, 255, 0.05); border-left-color: var(--accent); }
+.sg-item.active { background: rgba(var(--accent-rgb), 0.12); }
 .sg-item.active .sg-main { color: var(--accent-2); }
 
 /* ── Channel chips ────────────────────────────────────────────────
-   Flat underline tabs, sat separately rather than fused into one
-   segmented pill — deliberately quiet until active. */
-.chips { display: flex; gap: 1px; }
+   Three separate pill islands; the active one lights up in its
+   channel colour. */
+.chips { display: flex; gap: var(--island-gap); }
 .chip {
+  --ch: var(--accent);
+  --ch-rgb: var(--accent-rgb);
   flex: 1;
-  border: none;
-  border-bottom: 2px solid var(--line);
-  background: var(--scrim-soft);
+  display: flex; align-items: center; justify-content: center; gap: 7px;
   color: var(--gray-4);
   cursor: pointer;
   padding: 8px 0;
-  font-family: var(--font-disp); font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
-  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+  border-radius: 999px;
+  font-family: var(--font-disp); font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+  transition: color 140ms ease, border-color 140ms ease, background 140ms ease;
 }
+.chip::before {
+  content: '';
+  width: 5px; height: 5px; border-radius: 50%;
+  background: currentColor;
+  opacity: 0.6;
+}
+.chip[data-ch="crew"] { --ch: var(--crew); --ch-rgb: 255, 180, 84; }
+.chip[data-ch="dm"]   { --ch: var(--dm);   --ch-rgb: 255, 95, 184; }
 .chip:hover { color: var(--gray-2); }
-.chip.active { color: var(--gray-1); background: rgba(var(--accent-rgb), 0.1); border-bottom-color: var(--accent); }
-.chip[data-ch="crew"].active { background: rgba(255, 180, 84, 0.1); border-bottom-color: var(--crew); }
-.chip[data-ch="dm"].active { background: rgba(255, 95, 184, 0.1); border-bottom-color: var(--dm); }
+.chip.active {
+  color: var(--gray-1);
+  background: rgba(var(--ch-rgb), 0.16);
+  border-color: rgba(var(--ch-rgb), 0.45);
+}
+.chip.active::before { background: var(--ch); opacity: 1; }

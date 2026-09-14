@@ -1,7 +1,8 @@
 (function () {
   const RES = 'spz-chat';
   const el = (id) => document.getElementById(id);
-  const panel = el('panel');
+  const dock = el('dock');
+  const launcher = el('launcher');
   const log = el('log');
   const bar = el('bar');
   const input = el('input');
@@ -34,6 +35,12 @@
   let sentHistory = [];
   let historyIdx = -1;
   let fadeTimer = null;
+  let closeTimer = null;
+  let isOpen = false;
+  let closeStartedAt = 0;
+  let lastLineAt = 0;
+  let lastSendAt = 0;
+  let anims = [];      // WAAPI animations owned by the open/close sequence
 
   let sugItems = [];    // current suggestion entries {label, hint, apply}
   let sugIdx = -1;
@@ -48,66 +55,132 @@
     const div = document.createElement('div');
     div.className = 'line ' + channel;
 
+    // Two islands per row: the avatar on its own, and the message box
+    // (name + text). System / error lines have no sender, so message-only.
     if (channel === 'system' || channel === 'error') {
-      div.innerHTML = `<span class="line-body">${esc(payload.text)}</span>`;
-    } else if (channel === 'crew') {
-      div.innerHTML =
-        avatarHtml(payload.from, payload.avatar) +
-        `<span class="line-body">` +
-        `<span class="tag">Crew</span>` +
-        `<span class="from">${esc(payload.from)}</span>` +
-        (payload.crewTag ? ` <span class="crewtag">${esc(payload.crewTag)}</span>` : '') +
-        `<span class="text">: ${esc(payload.text)}</span></span>`;
-    } else if (channel === 'dm') {
-      const label = payload.dir === 'out' ? `to ${esc(payload.from)}` : `from ${esc(payload.from)}`;
-      div.innerHTML =
-        avatarHtml(payload.from, payload.avatar) +
-        `<span class="line-body">` +
-        `<span class="tag">DM</span>` +
-        `<span class="from">${label}</span>` +
-        `<span class="text">: ${esc(payload.text)}</span></span>`;
+      div.innerHTML = `<div class="msg"><span class="line-body"><span class="text">${esc(payload.text)}</span></span></div>`;
     } else {
+      let tag = '';
+      if (channel === 'crew') tag = `<span class="tag">Crew</span>`;
+      if (channel === 'dm') tag = `<span class="tag">${payload.dir === 'out' ? 'To' : 'DM'}</span>`;
+      const crewTag = channel !== 'dm' && payload.crewTag
+        ? ` <span class="crewtag">${esc(payload.crewTag)}</span>` : '';
+
       div.innerHTML =
-        avatarHtml(payload.from, payload.avatar) +
-        `<span class="line-body">` +
+        `<div class="who">${avatarHtml(payload.from, payload.avatar)}</div>` +
+        `<div class="msg"><span class="line-body">` +
+        tag +
         `<span class="from">${esc(payload.from)}</span>` +
-        (payload.crewTag ? ` <span class="crewtag">${esc(payload.crewTag)}</span>` : '') +
-        `<span class="text">: ${esc(payload.text)}</span></span>`;
+        crewTag +
+        ` <span class="text">${esc(payload.text)}</span>` +
+        `</span></div>`;
     }
 
     log.insertBefore(div, log.firstChild);
     while (log.children.length > MAX_LINES) log.removeChild(log.lastChild);
+    lastLineAt = Date.now();
+    updateLogMask();
 
-    wake();
-  }
-
-  function wake() {
-    panel.classList.remove('faded');
-    clearTimeout(fadeTimer);
-    if (!panel.classList.contains('open')) {
-      fadeTimer = setTimeout(() => panel.classList.add('faded'), 6000);
+    if (!isOpen) {
+      // Don't flag your own echo as unread.
+      if (Date.now() - lastSendAt > 1500) {
+        dock.classList.add('unread');
+        launcher.animate(
+          [{ transform: 'scale(1)' }, { transform: 'scale(1.12)' }, { transform: 'scale(1)' }],
+          { duration: 320, easing: 'cubic-bezier(.3, 1.4, .6, 1)' }
+        );
+      }
+      if (!dock.classList.contains('closing')) wake();
     }
   }
 
+  // Closed: recent lines peek above the icon, then fade back to icon-only.
+  function wake() {
+    dock.classList.remove('faded');
+    clearTimeout(fadeTimer);
+    fadeTimer = setTimeout(() => dock.classList.add('faded'), 6000);
+  }
+
+  function fadeNow() {
+    log.style.transition = 'none';
+    dock.classList.add('faded');
+    void log.offsetWidth;
+    log.style.transition = '';
+  }
+
+  // Feather the top edge only when there's hidden history above it.
+  function updateLogMask() {
+    const overflow = log.scrollHeight > log.clientHeight + 1;
+    const atTop = Math.abs(log.scrollTop) + log.clientHeight >= log.scrollHeight - 2;
+    log.classList.toggle('overflow', overflow && !atTop);
+  }
+  log.addEventListener('scroll', updateLogMask);
+
+  function stopAnims() {
+    anims.forEach((a) => a.cancel());
+    anims = [];
+  }
+
   // ── Show / hide ────────────────────────────────────────────────────────────
+  // Open:  icon → small box → full bar (CSS keyframes on .launcher), then the
+  //        chips and history rows rise out of the bar, staggered bottom-up.
+  // Close: rows sink back into the bar, bar shrinks back down to the icon.
+
+  const EASE_OUT = 'cubic-bezier(.2, .8, .2, 1)';
 
   function show() {
-    panel.classList.add('open');
-    panel.classList.remove('faded');
+    if (isOpen) return;
+    isOpen = true;
+    stopAnims();
     clearTimeout(fadeTimer);
+    clearTimeout(closeTimer);
+
+    dock.classList.remove('closing', 'faded', 'unread');
+    dock.classList.add('open');
     bar.classList.remove('hidden');
     input.value = '';
     setChannel('global');
     closeSuggest();
     historyIdx = -1;
+    log.scrollTop = 0;
+    updateLogMask();
+
+    const rows = [bar, ...Array.from(log.children).slice(0, 8)];
+    rows.forEach((node, i) => {
+      anims.push(node.animate(
+        [{ opacity: 0, transform: 'translateY(14px)' }, { opacity: 1, transform: 'none' }],
+        { duration: 300, delay: 280 + i * 40, easing: EASE_OUT, fill: 'backwards' }
+      ));
+    });
+
     setTimeout(() => input.focus(), 10);
   }
 
   function hide() {
-    panel.classList.remove('open');
-    bar.classList.add('hidden');
+    if (!isOpen) return;
+    isOpen = false;
+    stopAnims();
     closeSuggest();
-    wake();
+    input.blur();
+    closeStartedAt = Date.now();
+
+    dock.classList.remove('open');
+    dock.classList.add('closing');
+
+    const sink = [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(12px)' }];
+    anims.push(bar.animate(sink, { duration: 140, easing: 'ease-in', fill: 'forwards' }));
+    anims.push(log.animate(sink, { duration: 180, easing: 'ease-in', fill: 'forwards' }));
+
+    closeTimer = setTimeout(() => {
+      bar.classList.add('hidden');
+      log.scrollTop = 0;
+      // A reply/echo that landed mid-close should still peek; otherwise icon only.
+      if (lastLineAt > closeStartedAt) wake();
+      else fadeNow();
+      stopAnims();
+      dock.classList.remove('closing');
+      updateLogMask();
+    }, 360);
   }
 
   // ── Channel pills ──────────────────────────────────────────────────────────
@@ -207,6 +280,7 @@
     sentHistory.push(text);
     if (sentHistory.length > 30) sentHistory.shift();
     historyIdx = -1;
+    lastSendAt = Date.now();
     post('send', { text });
     hide();
   }
@@ -283,6 +357,19 @@
     }
   }
 
+  // ── Minimap anchor ─────────────────────────────────────────────────────────
+  // Client pushes the real minimap rect (screen fractions) so the dock sits
+  // beside the map at any resolution / safezone.
+  function applyMinimap(m) {
+    if (!m) return;
+    const root = document.documentElement.style;
+    root.setProperty('--map-left', `${m.left * 100}vw`);
+    root.setProperty('--map-w', `${m.width * 100}vw`);
+    root.setProperty('--map-h', `${(m.bottom - m.top) * 100}vh`);
+    root.setProperty('--map-bottom', `${(1 - m.bottom) * 100}vh`);
+    updateLogMask();
+  }
+
   // ── NUI messages from client Lua ──────────────────────────────────────────
 
   window.addEventListener('message', (e) => {
@@ -293,5 +380,6 @@
     else if (d.action === 'commands') commands = d.list || [];
     else if (d.action === 'online') players = d.list || [];
     else if (d.action === 'theme') applyTheme(d.theme);
+    else if (d.action === 'minimap') applyMinimap(d.rect);
   });
 })();
