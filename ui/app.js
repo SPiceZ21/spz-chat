@@ -292,7 +292,32 @@
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      if (sugMode && sugIdx >= 0) { applySuggestion(sugIdx); return; }
+
+      /*
+       * Enter accepts a suggestion ONLY when accepting it would actually change
+       * what is typed. Otherwise it sends.
+       *
+       * This is why every command used to need Enter pressed twice. The
+       * suggestion list is built with `startsWith`, and every command is a
+       * prefix of itself — so typing a command IN FULL still produced exactly
+       * one match, and updateSuggest auto-highlights the first match
+       * (`sugIdx = 0`). Enter therefore "completed" `/setstart` to `/setstart `,
+       * which is the same thing plus a space, closed the box, and left the
+       * message unsent. The second Enter was the one that did the work.
+       *
+       * Compared trimmed, because the only difference in that case is the
+       * trailing space `apply()` adds to tee up an argument.
+       */
+      if (sugMode && sugIdx >= 0) {
+        const completed = sugItems[sugIdx].apply();
+        if (completed.trim() !== input.value.trim()) {
+          applySuggestion(sugIdx);
+          return;
+        }
+        // Already typed in full — nothing to complete, so fall through to send.
+        closeSuggest();
+      }
+
       send();
       return;
     }
