@@ -7,7 +7,9 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="root">
+  <!-- Starts hidden: the client says when the player is actually in the world,
+       so the box never paints over the loading screen or the spawn menu. -->
+  <div id="root" class="hud-hidden">
     <!-- Docked beside the minimap. Closed it's just the launcher icon; opening
          morphs icon → small box → full-width input, then the history rises
          up out of it (see the wireframe frames 12–15). -->

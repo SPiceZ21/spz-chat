@@ -1,6 +1,7 @@
 (function () {
   const RES = 'spz-chat';
   const el = (id) => document.getElementById(id);
+  const rootEl = el('root');
   const dock = el('dock');
   const launcher = el('launcher');
   const log = el('log');
@@ -395,11 +396,24 @@
     updateLogMask();
   }
 
+  // ── World visibility ───────────────────────────────────────────────────────
+  // The client owns this: hidden through the loading screen and the spawn menu,
+  // shown once the player is actually driving around. Messages that arrive while
+  // hidden still land in the log, so nothing said during the wait is lost.
+  function setVisible(v) {
+    rootEl.classList.toggle('hud-hidden', !v);
+    if (!v && isOpen) hide();
+  }
+
+  // Browser preview (no NUI): nothing will ever push visibility, so show it.
+  if (typeof GetParentResourceName !== 'function') setVisible(true);
+
   // ── NUI messages from client Lua ──────────────────────────────────────────
 
   window.addEventListener('message', (e) => {
     const d = e.data || {};
-    if (d.action === 'show') show();
+    if (d.action === 'visible') setVisible(d.visible !== false);
+    else if (d.action === 'show') show();
     else if (d.action === 'hide') hide();
     else if (d.action === 'message') addLine(d.payload);
     else if (d.action === 'commands') commands = d.list || [];

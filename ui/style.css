@@ -48,6 +48,10 @@ html, body { width: 100vw; height: 100vh; background: transparent; overflow: hid
 
 #root { position: fixed; inset: 0; pointer-events: none; }
 
+/* Hidden until the client says the player is in the world (spawn menu closed).
+   display:none rather than opacity so nothing animates or fades on the way in. */
+#root.hud-hidden { display: none; }
+
 /* Shared island look. */
 .who, .msg, .chip, .suggest, .launcher {
   background: var(--island);

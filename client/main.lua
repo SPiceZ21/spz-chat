@@ -77,8 +77,38 @@ CreateThread(function()
     end
 end)
 
-local function openChat()
+-- ── Visibility gate ──────────────────────────────────────────────────────
+--
+-- The log is always-on, but "always" starts when the player is actually in the
+-- world — not at resource start. The loading screen comes down onto the spawn
+-- menu, and the chat box was drawn over both. spz-spawn publishes where the
+-- player is in that flow as client-local statebags; nil means that resource is
+-- not running, which reads as "in the world" so chat is never lost without it.
+local function inWorld()
+    local st = LocalPlayer.state
+    if st.spawnMenuOpen then return false end
+    if st.spawned == false then return false end
+    return true
+end
+
+local openChat, closeChat
+
+local visible = nil
+local function pushVisibility()
+    local v = inWorld()
+    if v == visible then return end
+    visible = v
+    -- Input open when the menu takes over (`/spawn`, a route back to the menu):
+    -- drop focus with it, or the player is typing into a box they cannot see.
+    if not v then closeChat() end
+    SendNUIMessage({ action = 'visible', visible = v })
+end
+
+function openChat()
     if open then return end
+    -- T during the spawn menu is not a chat key: the menu owns NUI focus, and
+    -- taking it here is how the menu became unclickable.
+    if not inWorld() then return end
     open = true
     SetNuiFocus(true, true)
     SendNUIMessage({ action = 'show' })
@@ -86,12 +116,23 @@ local function openChat()
     pushOnline()
 end
 
-local function closeChat()
+function closeChat()
     if not open then return end
     open = false
     SetNuiFocus(false, false)
     SendNUIMessage({ action = 'hide' })
 end
+
+-- Polled rather than driven by a state-bag handler: the bag name needs a server
+-- id, which is not assigned yet this early, and pushVisibility only sends a NUI
+-- message when the answer actually changes. Half a second of chat arriving late
+-- after the menu closes is not worth a handler that can miss its own bag.
+CreateThread(function()
+    while true do
+        pushVisibility()
+        Wait(500)
+    end
+end)
 
 RegisterCommand('spz_chat_open', function() openChat() end, false)
 RegisterKeyMapping('spz_chat_open', 'Open chat', 'keyboard', Config.Keybind)
