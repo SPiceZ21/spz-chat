@@ -359,11 +359,16 @@
   // ── Base theme (server.cfg spz_theme_* convars, pushed from spz-core) ─────
   // Keys map to this page's CSS variable names; unknown/missing keys are a
   // no-op since the stylesheet's own :root defaults still apply.
+  //
+  // System lines (join / leave / server notices) follow `accent`, not `gold`.
+  // `gold` would be the semantic fit, but spz-core sends all six keys on every
+  // push with its own defaults filled in, so a server that rebrands with
+  // `spz_theme_accent` alone would keep getting gold's stock amber here and
+  // the join lines would stay orange while the rest of the chat moved.
   const THEME_VARS = {
-    accent: '--accent',
+    accent: ['--accent', '--system'],
     accent2: '--accent-2',
     danger: '--danger',
-    gold: '--system',
   };
   // Some rgba(...) glows/tints reference the accent as raw components rather
   // than the solid hex, so they can carry an alpha — keep those in sync too.
@@ -375,7 +380,11 @@
   function applyTheme(theme) {
     if (!theme) return;
     for (const key in THEME_VARS) {
-      if (theme[key]) document.documentElement.style.setProperty(THEME_VARS[key], theme[key]);
+      if (!theme[key]) continue;
+      const targets = THEME_VARS[key];
+      for (const cssVar of (Array.isArray(targets) ? targets : [targets])) {
+        document.documentElement.style.setProperty(cssVar, theme[key]);
+      }
     }
     for (const key in THEME_RGB_VARS) {
       const rgb = theme[key] && hexToRgbTriplet(theme[key]);

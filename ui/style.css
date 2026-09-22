@@ -35,8 +35,13 @@
   --map-bottom:  2vh;
 
   --dock-gap:    10px;                         /* space between map and chat */
-  --dock-w:      max(var(--map-w), 360px);      /* full bar width, ≈ map width per wireframe */
-  --field-h:     40px;                         /* launcher icon / input height */
+  --dock-w:      max(var(--map-w), 420px);      /* full bar width, ≈ map width per wireframe */
+  --field-h:     44px;                         /* launcher icon / input height */
+
+  /* How far the dock sits above the minimap's own bottom edge. The map is the
+     anchor, not the floor: lifting the stack keeps the newest lines out of the
+     screen's bottom corner, where the safezone and the speedometer crowd it. */
+  --dock-lift:   44px;
   --mid-w:       100px;                        /* "small message box" morph step */
 
   --font-body:   'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -66,7 +71,7 @@ html, body { width: 100vw; height: 100vh; background: transparent; overflow: hid
 .dock {
   position: absolute;
   left: calc(var(--map-left) + var(--map-w) + var(--dock-gap));
-  bottom: var(--map-bottom);
+  bottom: calc(var(--map-bottom) + var(--dock-lift));
   width: var(--dock-w);
   display: flex; flex-direction: column;
   gap: var(--island-gap);
@@ -101,7 +106,7 @@ html, body { width: 100vw; height: 100vh; background: transparent; overflow: hid
   flex-shrink: 0;
   display: flex; align-items: stretch; gap: var(--island-gap);
   width: 100%;
-  font-size: 13px; line-height: 1.45;
+  font-size: 14px; line-height: 1.45;
   animation: lineIn 200ms cubic-bezier(.2, .8, .2, 1);
 }
 @keyframes lineIn { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }
@@ -116,7 +121,7 @@ html, body { width: 100vw; height: 100vh; background: transparent; overflow: hid
   flex-shrink: 0;
   align-self: flex-start;
   display: flex; align-items: center; justify-content: center;
-  width: 34px; height: 34px;
+  width: 38px; height: 38px;
   padding: 0;
   overflow: hidden;
 }
