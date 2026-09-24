@@ -41,7 +41,7 @@
   /* How far the dock sits above the minimap's own bottom edge. The map is the
      anchor, not the floor: lifting the stack keeps the newest lines out of the
      screen's bottom corner, where the safezone and the speedometer crowd it. */
-  --dock-lift:   44px;
+  --dock-lift:   22px;
   --mid-w:       100px;                        /* "small message box" morph step */
 
   --font-body:   'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
