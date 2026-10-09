@@ -31,7 +31,7 @@
     dm: { prefix: '/w ', placeholder: 'Whisper... /w <name> message' },
   };
 
-  let commands = [];   // [name, ...]
+  let commands = [];   // [{ name, help, params:[{name, help}] }, ...]
   let players = [];    // [{username}, ...]
   let sentHistory = [];
   let historyIdx = -1;
@@ -212,17 +212,41 @@
     sugItems = [];
     sugIdx = -1;
     sugMode = null;
+    sugUsage = null;
     suggestBox.classList.add('hidden');
     suggestBox.innerHTML = '';
   }
 
+  // Typed text in bold inside a suggestion label.
+  function markMatch(label, partial) {
+    if (!partial) return esc(label);
+    const i = label.toLowerCase().indexOf(partial.toLowerCase());
+    if (i < 0) return esc(label);
+    return esc(label.slice(0, i)) + '<b>' + esc(label.slice(i, i + partial.length)) + '</b>' + esc(label.slice(i + partial.length));
+  }
+
+  let sugPartial = '';
+  let sugUsage = null;   // { cmd, params, at } while typing a command's arguments
+
   function renderSuggest() {
-    if (!sugItems.length) { closeSuggest(); return; }
-    suggestBox.innerHTML = sugItems
+    if (!sugItems.length && !sugUsage) { closeSuggest(); return; }
+    let html = '';
+    if (sugUsage) {
+      const args = sugUsage.params.map((p, i) => {
+        const cls = i === sugUsage.at ? 'sg-arg now' : 'sg-arg';
+        return `<span class="${cls}">&lt;${esc(p.name)}&gt;</span>`;
+      }).join(' ');
+      const cur = sugUsage.params[sugUsage.at];
+      html += `<div class="sg-usage"><span class="sg-main">/${esc(sugUsage.cmd)}</span> ${args}` +
+        (cur && cur.help ? `<span class="sg-hint">${esc(cur.help)}</span>` : '') + '</div>';
+    }
+    html += sugItems
       .map((s, i) => `<div class="sg-item${i === sugIdx ? ' active' : ''}" data-i="${i}">
-        ${s.icon || ''}<span class="sg-main">${esc(s.label)}</span>${s.hint ? `<span class="sg-hint">${esc(s.hint)}</span>` : ''}
+        ${s.icon || ''}<span class="sg-main">${markMatch(s.label, sugPartial)}</span>${s.hint ? `<span class="sg-hint">${esc(s.hint)}</span>` : ''}
       </div>`)
       .join('');
+    if (sugItems.length) html += '<div class="sg-foot"><kbd>Tab</kbd> complete · <kbd>↑</kbd><kbd>↓</kbd> choose · <kbd>Enter</kbd> send</div>';
+    suggestBox.innerHTML = html;
     suggestBox.classList.remove('hidden');
     suggestBox.querySelectorAll('.sg-item').forEach((n) => {
       n.addEventListener('mousedown', (e) => {
@@ -230,18 +254,32 @@
         applySuggestion(parseInt(n.dataset.i, 10));
       });
     });
+    const act = suggestBox.querySelector('.sg-item.active');
+    if (act) act.scrollIntoView({ block: 'nearest' });
+  }
+
+  // Starts-with matches first, then "contains" matches, each alphabetical.
+  function rank(list, key, partial) {
+    const p = partial.toLowerCase();
+    const starts = [], has = [];
+    for (const x of list) {
+      const k = key(x).toLowerCase();
+      if (k.startsWith(p)) starts.push(x);
+      else if (p && k.includes(p)) has.push(x);
+    }
+    return starts.concat(has);
   }
 
   function updateSuggest() {
     const v = input.value;
+    sugUsage = null;
 
-    // DM target: "/w <partial" or "/dm <partial" or "/tell <partial" with no trailing space yet consumed
+    // DM target: "/w <partial" or "/dm <partial" or "/tell <partial"
     const dmMatch = v.match(/^\/(w|dm|tell)\s+(\S*)$/i);
     if (dmMatch) {
-      const partial = dmMatch[2].toLowerCase();
+      sugPartial = dmMatch[2];
       sugMode = 'dm';
-      sugItems = players
-        .filter((p) => p.username.toLowerCase().startsWith(partial))
+      sugItems = rank(players, (p) => p.username, sugPartial)
         .slice(0, 8)
         .map((p) => ({ label: p.username, hint: 'player', icon: avatarHtml(p.username, p.avatar), apply: () => `/w ${p.username} ` }));
       sugIdx = sugItems.length ? 0 : -1;
@@ -252,15 +290,27 @@
     // Slash command: "/partial" with no space yet
     const cmdMatch = v.match(/^\/(\S*)$/);
     if (cmdMatch) {
-      const partial = cmdMatch[1].toLowerCase();
+      sugPartial = cmdMatch[1];
       sugMode = 'cmd';
-      sugItems = commands
-        .filter((c) => c.toLowerCase().startsWith(partial))
+      sugItems = rank(commands, (c) => c.name, sugPartial)
         .slice(0, 8)
-        .map((c) => ({ label: '/' + c, hint: 'command', apply: () => '/' + c + ' ' }));
+        .map((c) => ({ label: '/' + c.name, hint: c.help || 'command', apply: () => '/' + c.name + ' ' }));
       sugIdx = sugItems.length ? 0 : -1;
       renderSuggest();
       return;
+    }
+
+    // Typing a command's arguments: show its usage, current argument lit.
+    const argMatch = v.match(/^\/(\S+)\s(.*)$/);
+    if (argMatch) {
+      const c = commands.find((x) => x.name.toLowerCase() === argMatch[1].toLowerCase());
+      if (c && c.params && c.params.length) {
+        const typed = argMatch[2].split(/\s+/);
+        sugItems = []; sugIdx = -1; sugMode = null;
+        sugUsage = { cmd: c.name, params: c.params, at: Math.min(typed.length - 1, c.params.length - 1) };
+        renderSuggest();
+        return;
+      }
     }
 
     closeSuggest();
@@ -291,40 +341,29 @@
   input.addEventListener('input', updateSuggest);
 
   input.addEventListener('keydown', (e) => {
+    // Enter always sends exactly what is typed; completing is Tab's job.
     if (e.key === 'Enter') {
       e.preventDefault();
-
-      /*
-       * Enter accepts a suggestion ONLY when accepting it would actually change
-       * what is typed. Otherwise it sends.
-       *
-       * This is why every command used to need Enter pressed twice. The
-       * suggestion list is built with `startsWith`, and every command is a
-       * prefix of itself — so typing a command IN FULL still produced exactly
-       * one match, and updateSuggest auto-highlights the first match
-       * (`sugIdx = 0`). Enter therefore "completed" `/setstart` to `/setstart `,
-       * which is the same thing plus a space, closed the box, and left the
-       * message unsent. The second Enter was the one that did the work.
-       *
-       * Compared trimmed, because the only difference in that case is the
-       * trailing space `apply()` adds to tee up an argument.
-       */
-      if (sugMode && sugIdx >= 0) {
-        const completed = sugItems[sugIdx].apply();
-        if (completed.trim() !== input.value.trim()) {
-          applySuggestion(sugIdx);
-          return;
-        }
-        // Already typed in full — nothing to complete, so fall through to send.
-        closeSuggest();
-      }
-
+      closeSuggest();
       send();
       return;
     }
+    // Tab fills in the highlighted suggestion. When the text already IS that
+    // suggestion, Tab moves on to the next one (Shift+Tab: previous) and fills
+    // that instead, so repeated Tab walks the list.
     if (e.key === 'Tab') {
       e.preventDefault();
-      if (sugMode && sugItems.length) applySuggestion(sugIdx >= 0 ? sugIdx : 0);
+      if (!sugMode || !sugItems.length) return;
+      let i = sugIdx >= 0 ? sugIdx : 0;
+      if (sugItems[i].apply().trim() === input.value.trim()) {
+        i = (i + (e.shiftKey ? -1 : 1) + sugItems.length) % sugItems.length;
+      }
+      const items = sugItems, mode = sugMode, partial = sugPartial;
+      input.value = items[i].apply();
+      placeCaretEnd();
+      // Keep the list open on the same matches so the next Tab can cycle.
+      sugItems = items; sugMode = mode; sugPartial = partial; sugIdx = i;
+      renderSuggest();
       return;
     }
     if (e.key === 'Escape') {
@@ -425,7 +464,7 @@
     else if (d.action === 'show') show();
     else if (d.action === 'hide') hide();
     else if (d.action === 'message') addLine(d.payload);
-    else if (d.action === 'commands') commands = d.list || [];
+    else if (d.action === 'commands') commands = (d.list || []).map((c) => (typeof c === 'string' ? { name: c } : c));
     else if (d.action === 'online') players = d.list || [];
     else if (d.action === 'theme') applyTheme(d.theme);
     else if (d.action === 'minimap') applyMinimap(d.rect);

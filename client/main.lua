@@ -19,14 +19,70 @@ local function isChatPrefixed(text)
     return false
 end
 
-local function pushCommands()
-    local cmds = GetRegisteredCommands() or {}
-    local names = {}
-    for _, c in ipairs(cmds) do
-        names[#names + 1] = c.name
+-- Descriptions and argument hints, from the standard chat:addSuggestion
+-- events any resource can fire (same API as the default cfx chat):
+--   TriggerEvent('chat:addSuggestion', '/carcode', 'Copy the car spawn code', {
+--       { name = 'id', help = 'player id' } })
+-- Plus the chat's own routing shortcuts, which are not registered commands.
+local Suggestions = {
+    c    = { help = 'Message your crew',            params = { { name = 'message' } } },
+    g    = { help = 'Message everyone (global)',    params = { { name = 'message' } } },
+    w    = { help = 'Private message a player',     params = { { name = 'player' }, { name = 'message' } } },
+    dm   = { help = 'Private message a player',     params = { { name = 'player' }, { name = 'message' } } },
+    tell = { help = 'Private message a player',     params = { { name = 'player' }, { name = 'message' } } },
+}
+
+local function suggestionKey(name)
+    return tostring(name or ''):gsub('^/', ''):lower()
+end
+
+local function addSuggestion(name, help, params)
+    local key = suggestionKey(name)
+    if key == '' then return end
+    local clean = {}
+    for _, p in ipairs(type(params) == 'table' and params or {}) do
+        if type(p) == 'table' and p.name then
+            clean[#clean + 1] = { name = tostring(p.name), help = p.help and tostring(p.help) or nil }
+        end
     end
-    table.sort(names)
-    SendNUIMessage({ action = 'commands', list = names })
+    Suggestions[key] = { help = help and tostring(help) or nil, params = clean }
+end
+
+local pushQueued = false
+local pushCommands
+
+-- Suggestions tend to arrive in bursts at resource start; send one update.
+local function queuePush()
+    if pushQueued then return end
+    pushQueued = true
+    SetTimeout(500, function() pushQueued = false; pushCommands() end)
+end
+
+RegisterNetEvent('chat:addSuggestion', function(name, help, params)
+    addSuggestion(name, help, params); queuePush()
+end)
+RegisterNetEvent('chat:addSuggestions', function(list)
+    for _, s in ipairs(list or {}) do addSuggestion(s.name, s.help, s.params) end
+    queuePush()
+end)
+RegisterNetEvent('chat:removeSuggestion', function(name)
+    Suggestions[suggestionKey(name)] = nil; queuePush()
+end)
+
+function pushCommands()
+    local seen, list = {}, {}
+    local function add(name)
+        local key = suggestionKey(name)
+        -- "+foo" / "-foo" are key-mapping halves and "_x" internals: not typed.
+        if key == '' or seen[key] or key:find('^[%+%-_]') then return end
+        seen[key] = true
+        local s = Suggestions[key] or {}
+        list[#list + 1] = { name = key, help = s.help, params = s.params }
+    end
+    for _, c in ipairs(GetRegisteredCommands() or {}) do add(c.name) end
+    for key in pairs(Suggestions) do add(key) end
+    table.sort(list, function(a, b) return a.name < b.name end)
+    SendNUIMessage({ action = 'commands', list = list })
 end
 
 local function pushOnline()

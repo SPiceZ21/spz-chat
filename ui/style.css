@@ -302,9 +302,39 @@ html, body { width: 100vw; height: 100vh; background: transparent; overflow: hid
   cursor: pointer;
 }
 .sg-item .sg-main { color: var(--gray-2); font-weight: 700; }
-.sg-item .sg-hint { margin-left: auto; color: var(--gray-4); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; }
+.sg-hint {
+  margin-left: auto; padding-left: 12px;
+  color: var(--gray-4); font-size: 11px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60%;
+}
+.sg-item .sg-main b { color: var(--accent-2); font-weight: 800; }
 .sg-item.active { background: rgba(var(--accent-rgb), 0.12); }
 .sg-item.active .sg-main { color: var(--accent-2); }
+
+/* Argument hint while typing a command: /cmd <arg> <arg>, current one lit. */
+.sg-usage {
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 9px;
+  font-size: 12.5px; color: var(--gray-4);
+}
+.sg-usage .sg-main { color: var(--gray-2); font-weight: 700; }
+.sg-arg { color: var(--gray-4); }
+.sg-arg.now { color: var(--accent-2); font-weight: 700; }
+
+/* Key hint under the list. */
+.sg-foot {
+  padding: 5px 9px 3px;
+  font-size: 10px; color: var(--gray-4);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  margin-top: 2px;
+}
+.sg-foot kbd {
+  font-family: inherit; font-size: 9.5px;
+  padding: 1px 5px; margin: 0 1px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--gray-3);
+}
 
 /* ── Channel chips ────────────────────────────────────────────────
    Three separate pill islands; the active one lights up in its
