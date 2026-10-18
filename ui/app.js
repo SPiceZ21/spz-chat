@@ -58,7 +58,9 @@
 
     // Two islands per row: the avatar on its own, and the message box
     // (name + text). System / error lines have no sender, so message-only.
-    if (channel === 'system' || channel === 'error') {
+    if (channel === 'tip') {
+      div.innerHTML = `<div class="msg"><span class="line-body"><span class="tag">Tip</span><span class="text">${esc(payload.text)}</span></span></div>`;
+    } else if (channel === 'system' || channel === 'error') {
       div.innerHTML = `<div class="msg"><span class="line-body"><span class="text">${esc(payload.text)}</span></span></div>`;
     } else {
       let tag = '';

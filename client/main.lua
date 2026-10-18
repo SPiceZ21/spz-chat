@@ -179,6 +179,10 @@ function closeChat()
     SendNUIMessage({ action = 'hide' })
 end
 
+-- spz-tutorial closes whatever it opened when the tour moves on.
+AddEventHandler("spz-tutorial:closeUI", function() closeChat() end)
+
+
 -- Polled rather than driven by a state-bag handler: the bag name needs a server
 -- id, which is not assigned yet this early, and pushVisibility only sends a NUI
 -- message when the answer actually changes. Half a second of chat arriving late
@@ -256,3 +260,6 @@ end)
 AddEventHandler('onResourceStop', function(res)
     if res == GetCurrentResourceName() and open then SetNuiFocus(false, false) end
 end)
+
+TriggerEvent('chat:addSuggestion', '/help', 'Show every server feature and its key')
+

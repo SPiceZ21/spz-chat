@@ -161,3 +161,45 @@ AddEventHandler('SPZ:playerDisconnected', function(source)
     SystemBroadcast(name .. ' disconnected.')
     LastMsg[source] = nil
 end)
+
+-- ── Tips broadcast + /help ───────────────────────────────────────────────────
+-- Periodic feature reminders (Config.Tips) and a /help that lists everything
+-- (Config.Help). Both arrive as 'tip' lines so they read apart from chatter.
+
+local function sendTip(target, text)
+    TriggerClientEvent('spz-chat:receive', target, { channel = 'tip', text = text, ts = os.time() })
+end
+
+CreateThread(function()
+    local cfg = Config.Tips or {}
+    if cfg.Enabled == false or not cfg.Lines or #cfg.Lines == 0 then return end
+    Wait((tonumber(cfg.FirstDelayS) or 90) * 1000)
+    local i = 0
+    while true do
+        if #GetPlayers() > 0 then
+            i = (i % #cfg.Lines) + 1
+            sendTip(-1, cfg.Lines[i])
+        end
+        Wait(math.max(1, tonumber(cfg.IntervalMin) or 5) * 60000)
+    end
+end)
+
+local function sendHelp(src)
+    for _, line in ipairs((Config.Help and Config.Help.Lines) or {}) do sendTip(src, line) end
+end
+
+RegisterCommand('help', function(src)
+    if src > 0 then sendHelp(src) end
+end, false)
+
+AddEventHandler('playerJoining', function()
+    local src = source
+    local delay = tonumber(Config.Help and Config.Help.WelcomeDelayS) or 0
+    if delay <= 0 then return end
+    SetTimeout(delay * 1000, function()
+        if GetPlayerName(src) then
+            sendTip(src, "Welcome to SPiceZ! Press E to join a race, M for minigames. Type /help to see every feature, /tutorial for the guided tour.")
+        end
+    end)
+end)
+
