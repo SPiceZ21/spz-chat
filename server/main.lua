@@ -198,7 +198,7 @@ AddEventHandler('playerJoining', function()
     if delay <= 0 then return end
     SetTimeout(delay * 1000, function()
         if GetPlayerName(src) then
-            sendTip(src, "Welcome to SPiceZ! Press E to join a race, M for minigames. Type /help to see every feature, /tutorial for the guided tour.")
+            sendTip(src, "Welcome to SPiceZ! Press E to join a race, F7 for minigames. Type /help to see every feature, /tutorial for the guided tour.")
         end
     end)
 end)
