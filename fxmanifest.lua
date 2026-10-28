@@ -13,6 +13,7 @@ shared_scripts {
 }
 
 client_scripts {
+  'client/boot.lua',
   'client/main.lua',
 }
 

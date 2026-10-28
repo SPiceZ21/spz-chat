@@ -7,6 +7,15 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<!-- Hidden until the loading screen is down (client/boot.lua): NUI pages draw
+     on top of the loading screen, so this page showed through it. -->
+<style>body.spz-booting { visibility: hidden !important; }</style>
+<script>
+  document.body.classList.add('spz-booting')
+  window.addEventListener('message', function (e) {
+    if (e.data && e.data.action === 'spzBooted') document.body.classList.remove('spz-booting')
+  })
+</script>
   <!-- Starts hidden: the client says when the player is actually in the world,
        so the box never paints over the loading screen or the spawn menu. -->
   <div id="root" class="hud-hidden">
