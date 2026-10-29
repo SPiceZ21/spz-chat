@@ -3,7 +3,7 @@ game 'gta5'
 
 name 'spz-chat'
 description 'SPiceZ Chat — global / crew / DM chat box with slash-command autocomplete'
-version '1.9.0'
+version '1.10.0'
 author 'SPiceZ-Core'
 lua54 'yes'
 
