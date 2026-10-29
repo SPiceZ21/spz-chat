@@ -194,6 +194,66 @@ CreateThread(function()
     end
 end)
 
+-- Chat open while something moves the player (teleport into a minigame or a
+-- race, the race intro cover, a spawn fade) kept NUI focus through it: the
+-- typing box held the keyboard and mouse while the new mode tried to take
+-- them, and controls ended up split between the two. Any of those moments
+-- closes the box first.
+local function spectating()
+    if GetResourceState('spz-spectate') ~= 'started' then return false end
+    local ok, on = pcall(function() return exports['spz-spectate']:IsSpectating() end)
+    return ok and on == true
+end
+
+-- Everything that means "the player's situation just changed": race / queue /
+-- minigame / time trial / spectate state, the race phase, and which car they
+-- are in (a race or minigame warps them into one).
+local function modeKey()
+    local st = LocalPlayer.state
+    return table.concat({
+        tostring(st.inRace), tostring(st.inQueue), tostring(st.pendingRace),
+        tostring(st.inMinigame), tostring(st.mgRoom), tostring(st.inTimeTrial),
+        tostring(_G.SPZ_InTimeTrial), tostring(GlobalState.raceState),
+        tostring(spectating()), tostring(GetVehiclePedIsIn(PlayerPedId(), false)),
+    }, '|')
+end
+
+local function mustClose()
+    local ped = PlayerPedId()
+    return IsScreenFadingOut() or IsScreenFadedOut()   -- teleport / spawn / intro cover
+        or IsPauseMenuActive()                          -- GTA map / settings took over
+        or IsEntityDead(ped)                            -- died mid-sentence
+        or IsPlayerSwitchInProgress()                   -- sky-cam transitions
+end
+
+CreateThread(function()
+    local lastMode = modeKey()
+    while true do
+        local mode = modeKey()
+        if open and (mode ~= lastMode or mustClose()) then closeChat() end
+        lastMode = mode
+        Wait(open and 100 or 500)
+    end
+end)
+
+-- Moments that move the player or put a screen up, closed on the event itself
+-- so the box is gone before the move rather than up to 100ms after it.
+for _, ev in ipairs({
+    'SPZ:tpToGrid', 'SPZ:tpToGridPoint', 'SPZ:tpToSafeZone', 'SPZ:gridFormed',
+    'SPZ:spawnCheckpoints', 'SPZ:pollOpen', 'SPZ:tt:Begin', 'SPZ:tt:End',
+    'spz:minigameChanged', 'spz:leaveMinigame',
+}) do
+    -- RegisterNetEvent: most of these come from the server, and a plain
+    -- AddEventHandler in this resource would never see them.
+    RegisterNetEvent(ev, function() closeChat() end)
+end
+
+-- Any resource about to take NUI focus can close chat first:
+--   TriggerEvent('spz-chat:close')   or   exports['spz-chat']:Close()
+AddEventHandler('spz-chat:close', function() closeChat() end)
+exports('Close', function() closeChat() end)
+exports('IsOpen', function() return open end)
+
 RegisterCommand('spz_chat_open', function() openChat() end, false)
 RegisterKeyMapping('spz_chat_open', 'Open chat', 'keyboard', Config.Keybind)
 
