@@ -196,7 +196,7 @@
   // ── Channel pills ──────────────────────────────────────────────────────────
 
   function setChannel(ch) {
-    document.querySelectorAll('.chip').forEach((b) => b.classList.toggle('active', b.dataset.ch === ch));
+    document.querySelectorAll('.chip[data-ch]').forEach((b) => b.classList.toggle('active', b.dataset.ch === ch));
     input.placeholder = CHANNELS[ch].placeholder;
 
     const cur = input.value;
@@ -205,7 +205,8 @@
     placeCaretEnd();
   }
 
-  document.querySelectorAll('.chip').forEach((b) => {
+  // Channel pills only: the emoji / GIF pills share the .chip look, not the job.
+  document.querySelectorAll('.chip[data-ch]').forEach((b) => {
     b.addEventListener('click', () => setChannel(b.dataset.ch));
   });
 
