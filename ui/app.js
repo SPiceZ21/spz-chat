@@ -75,8 +75,12 @@
         tag +
         `<span class="from">${esc(payload.from)}</span>` +
         crewTag +
-        ` <span class="text">${esc(payload.text)}</span>` +
-        `</span></div>`;
+        (payload.text ? ` <span class="text">${esc(payload.text)}</span>` : '') +
+        `</span>` +
+        // Only GIPHY media, and the server built the URL.
+        (payload.gif && /^https:\/\/media\.giphy\.com\/media\/[A-Za-z0-9]+\/200\.gif$/.test(payload.gif)
+          ? `<img class="gif" src="${payload.gif}" alt="GIF" loading="lazy">` : '') +
+        `</div>`;
     }
 
     log.insertBefore(div, log.firstChild);
@@ -164,6 +168,9 @@
     isOpen = false;
     stopAnims();
     closeSuggest();
+    document.getElementById('gifs').classList.add('hidden');
+    document.getElementById('emojis').classList.add('hidden');
+    document.querySelectorAll('.gif-chip').forEach((b) => b.classList.remove('on'));
     input.blur();
     closeStartedAt = Date.now();
 
@@ -324,6 +331,104 @@
     closeSuggest();
     placeCaretEnd();
   }
+
+  // ── Emoji picker ───────────────────────────────────────────────────────────
+
+  const EMOJI = [
+    ['😀', '😀 😃 😄 😁 😆 😅 🤣 😂 🙂 😉 😊 😇 🥰 😍 🤩 😘 😋 😛 😜 🤪 😝 🤑 🤗 🤭 🤫 🤔 🤐 🤨 😐 😑 😶 😏 😒 🙄 😬 😌 😔 😪 😴 😷 🤒 🤕 🤢 🤮 🥵 🥶 🥴 😵 🤯 🤠 🥳 😎 🤓 🧐 😕 😟 🙁 😮 😯 😲 😳 🥺 😦 😧 😨 😰 😥 😢 😭 😱 😖 😣 😞 😓 😩 😫 🥱 😤 😡 😠 🤬 😈 👿 💀 ☠️ 💩 🤡 👻 👽 🤖'],
+    ['👍', '👍 👎 👊 ✊ 🤛 🤜 👏 🙌 👐 🤲 🤝 🙏 ✌️ 🤞 🤟 🤘 👌 🤌 🤏 👈 👉 👆 👇 ☝️ ✋ 🤚 🖐️ 🖖 👋 🤙 💪 🦾 🫡 🫶 👀 🧠 🫠 🤦 🤷 🙋 🙇'],
+    ['🏁', '🏁 🏎️ 🚗 🚙 🚓 🚔 🚕 🛻 🚚 🚛 🏍️ 🛵 🚲 🚁 ✈️ 🚀 🛞 ⛽ 🚦 🚧 🏆 🥇 🥈 🥉 🏅 🎖️ ⏱️ ⏲️ 🕹️ 🎮 🎯 🎲 💨 🔥 ⚡ 💥 💯 🚨'],
+    ['🎉', '🎉 🎊 🎁 🎈 🎂 🍕 🍔 🍟 🌮 🍩 🍪 🍿 ☕ 🍺 🍻 🥂 🧃 💰 💸 💎 🔑 🗝️ 📸 🎧 🎵 🎶 📱 💻 ⌚ 🧨 🪙 🛠️ 🔧 🔩 ⚙️'],
+    ['❤️', '❤️ 🧡 💛 💚 💙 💜 🖤 🤍 🤎 💔 ❣️ 💕 💞 💓 💗 💖 💘 💝 ✅ ❌ ⚠️ ❓ ❗ 💤 ✨ ⭐ 🌟 💫 🔴 🟠 🟡 🟢 🔵 🟣 ⚫ ⚪ ➡️ ⬅️ ⬆️ ⬇️ 🔄 🆗 🆕 🆒 🔝'],
+  ];
+  const emojis = document.getElementById('emojis');
+  const emoTabs = document.getElementById('emoTabs');
+  const emoGrid = document.getElementById('emoGrid');
+  const emoBtn = document.getElementById('emoBtn');
+  let emoCat = 0;
+
+  function renderEmojis() {
+    emoTabs.innerHTML = EMOJI.map((c, i) =>
+      `<button type="button" data-i="${i}" class="${i === emoCat ? 'on' : ''}">${c[0]}</button>`).join('');
+    emoGrid.innerHTML = EMOJI[emoCat][1].split(' ').map((e) => `<button type="button">${e}</button>`).join('');
+  }
+  emoTabs.addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    emoCat = +b.dataset.i; renderEmojis();
+  });
+  // Insert at the caret and keep the picker open, so several can be added.
+  emoGrid.addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    const em = b.textContent;
+    const s = input.selectionStart ?? input.value.length, en = input.selectionEnd ?? s;
+    if ((input.value.length - (en - s) + em.length) > 200) return;
+    input.value = input.value.slice(0, s) + em + input.value.slice(en);
+    input.focus();
+    input.setSelectionRange(s + em.length, s + em.length);
+  });
+  function toggleEmojis(force) {
+    const on = force !== undefined ? force : emojis.classList.contains('hidden');
+    if (on && typeof toggleGifs === 'function') toggleGifs(false);
+    emojis.classList.toggle('hidden', !on);
+    emoBtn.classList.toggle('on', on);
+    if (on) { closeSuggest(); renderEmojis(); }
+    input.focus();
+  }
+  emoBtn.addEventListener('click', () => toggleEmojis());
+
+  // ── GIF picker ─────────────────────────────────────────────────────────────
+
+  const gifs = document.getElementById('gifs');
+  const gifQ = document.getElementById('gifQ');
+  const gifGrid = document.getElementById('gifGrid');
+  const gifBtn = document.getElementById('gifBtn');
+  let gifTimer = null, gifReq = 0;
+
+  async function gifSearch(q) {
+    const my = ++gifReq;
+    gifGrid.innerHTML = '<div class="gif-note">Loading...</div>';
+    let res;
+    try {
+      res = await fetch(`https://${RES}/gifSearch`, { method: 'POST', body: JSON.stringify({ q }) }).then((r) => r.json());
+    } catch (e) { res = { ok: false, error: 'GIFs unavailable.' }; }
+    if (my !== gifReq) return;                       // a newer search is on its way
+    if (!res || !res.ok) { gifGrid.innerHTML = `<div class="gif-note">${esc((res && res.error) || 'GIFs unavailable.')}</div>`; return; }
+    if (!res.results.length) { gifGrid.innerHTML = '<div class="gif-note">No GIFs found.</div>'; return; }
+    gifGrid.innerHTML = '';
+    for (const g of res.results) {
+      const img = new Image();
+      img.src = g.preview; img.alt = g.title || 'GIF'; img.loading = 'lazy';
+      img.onclick = () => sendGif(g.id);
+      gifGrid.appendChild(img);
+    }
+  }
+
+  function toggleGifs(force) {
+    const on = force !== undefined ? force : gifs.classList.contains('hidden');
+    if (on) toggleEmojis(false);
+    gifs.classList.toggle('hidden', !on);
+    gifBtn.classList.toggle('on', on);
+    if (on) { closeSuggest(); gifQ.value = ''; gifSearch(''); gifQ.focus(); }
+    else input.focus();
+  }
+
+  // Sent on the channel the input is set to: keep its /c or /w name prefix.
+  function sendGif(id) {
+    const m = input.value.match(/^\/(?:c|crew)\s+|^\/(?:w|dm|tell)\s+\S+\s+|^\/g\s+/i);
+    input.value = (m ? m[0] : '') + ':gif:' + id;
+    toggleGifs(false);
+    send();
+  }
+
+  gifBtn.addEventListener('click', () => toggleGifs());
+  gifQ.addEventListener('input', () => {
+    clearTimeout(gifTimer);
+    gifTimer = setTimeout(() => gifSearch(gifQ.value.trim()), 400);
+  });
+  gifQ.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { e.preventDefault(); toggleGifs(false); }
+    e.stopPropagation();                              // don't trigger chat shortcuts
+  });
 
   // ── Send ───────────────────────────────────────────────────────────────────
 

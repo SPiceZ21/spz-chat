@@ -29,10 +29,25 @@
       <div id="bar" class="bar hidden">
         <div id="suggest" class="suggest hidden"></div>
 
+        <!-- Emoji picker -->
+        <div id="emojis" class="emojis hidden">
+          <div id="emoTabs" class="emo-tabs"></div>
+          <div id="emoGrid" class="emo-grid"></div>
+        </div>
+
+        <!-- GIF picker (GIPHY, searched server-side) -->
+        <div id="gifs" class="gifs hidden">
+          <input id="gifQ" class="gif-q" type="text" placeholder="Search GIPHY..." autocomplete="off" maxlength="50">
+          <div id="gifGrid" class="gif-grid"></div>
+          <div class="gif-foot">Powered by GIPHY</div>
+        </div>
+
         <div class="chips">
           <button class="chip active" data-ch="global">Global</button>
           <button class="chip" data-ch="crew">Crew</button>
           <button class="chip" data-ch="dm">DM</button>
+          <button id="emoBtn" class="chip gif-chip" type="button" title="Emoji">😀</button>
+          <button id="gifBtn" class="chip gif-chip" type="button">GIF</button>
         </div>
       </div>
 

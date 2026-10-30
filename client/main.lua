@@ -284,6 +284,12 @@ RegisterNUICallback('close', function(_, cb)
     cb(1)
 end)
 
+-- GIF picker: the server searches GIPHY (it holds the API keys).
+RegisterNUICallback('gifSearch', function(d, cb)
+    local res = lib.callback.await('spz-chat:gifSearch', false, d and d.q or '')
+    cb(res or { ok = false, error = 'No answer from the server.' })
+end)
+
 RegisterNUICallback('send', function(d, cb)
     closeChat()
     local text = d and d.text

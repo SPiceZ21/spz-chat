@@ -6,6 +6,17 @@ Config.Keybind        = 't'    -- opens chat input (registry: Docs/keybinds.md)
 Config.MaxLength      = 200    -- max characters per message
 Config.MinIntervalMs  = 350    -- flood guard between messages
 
+-- ── GIFs (GIPHY) ─────────────────────────────────────────────────────────────
+-- The API keys are NOT here (this file is sent to every player): put them in
+-- config_server.lua. Several keys rotate automatically when one hits its limit.
+Config.Giphy = {
+  Enabled          = true,
+  Rating           = 'pg-13',  -- g | pg | pg-13 | r
+  Results          = 24,       -- GIFs per search
+  KeyCooldownMin   = 60,       -- a key that hit its limit rests this long
+  SearchCooldownMs = 600,      -- per-player search flood guard
+}
+
 -- ── Tips broadcast ───────────────────────────────────────────────────────────
 -- One line from this list goes out to everyone every IntervalMin minutes, in
 -- order, so new players find out what the server has. Keys are the defaults;

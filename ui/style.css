@@ -370,3 +370,59 @@ html, body { width: 100vw; height: 100vh; background: transparent; overflow: hid
   border-color: rgba(var(--ch-rgb), 0.45);
 }
 .chip.active::before { background: var(--ch); opacity: 1; }
+
+/* ── GIFs ─────────────────────────────────────────────────────────── */
+.gif-chip { flex: 0 0 auto; padding: 8px 14px; }
+.gif-chip::before { display: none; }
+.gif-chip.on { color: var(--gray-1); background: rgba(var(--accent-rgb), .16); border-color: rgba(var(--accent-rgb), .45); }
+.gifs {
+  margin-bottom: var(--island-gap); padding: 8px; border-radius: var(--island-r);
+  background: var(--island); border: 1px solid var(--island-edge); box-shadow: var(--island-shadow);
+  animation: barIn 140ms cubic-bezier(.2, .8, .2, 1);
+}
+.gifs.hidden { display: none; }
+.gif-q {
+  width: 100%; padding: 8px 10px; border-radius: 8px; outline: none;
+  background: rgba(255,255,255,.05); border: 1px solid var(--island-edge); color: var(--gray-1);
+  font: 500 12.5px inherit;
+}
+.gif-q:focus { border-color: rgba(var(--accent-rgb), .5); }
+.gif-grid {
+  margin-top: 8px; max-height: 220px; overflow-y: auto; scrollbar-width: thin;
+  columns: 3; column-gap: 6px;
+}
+.gif-grid img {
+  width: 100%; display: block; margin-bottom: 6px; border-radius: 6px; cursor: pointer;
+  background: rgba(255,255,255,.04); transition: transform 120ms ease, outline-color 120ms ease;
+  outline: 2px solid transparent; outline-offset: -2px; break-inside: avoid;
+}
+.gif-grid img:hover { transform: scale(1.03); outline-color: var(--accent); }
+.gif-note { color: var(--gray-3); font-size: 12px; padding: 14px 4px; text-align: center; column-span: all; }
+.gif-foot { margin-top: 6px; font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--gray-4); text-align: right; }
+.line .gif { display: block; margin-top: 6px; max-width: 200px; max-height: 150px; border-radius: 8px; }
+
+/* ── Emoji picker ─────────────────────────────────────────────────── */
+.emojis {
+  margin-bottom: var(--island-gap); padding: 8px; border-radius: var(--island-r);
+  background: var(--island); border: 1px solid var(--island-edge); box-shadow: var(--island-shadow);
+  animation: barIn 140ms cubic-bezier(.2, .8, .2, 1);
+}
+.emojis.hidden { display: none; }
+.emo-tabs { display: flex; gap: 4px; padding-bottom: 6px; border-bottom: 1px solid var(--island-edge); }
+.emo-tabs button {
+  flex: 1; padding: 5px 0; border-radius: 7px; font-size: 16px; cursor: pointer;
+  opacity: .5; transition: opacity 120ms ease, background 120ms ease;
+}
+.emo-tabs button:hover { opacity: .85; }
+.emo-tabs button.on { opacity: 1; background: rgba(var(--accent-rgb), .16); }
+.emo-grid {
+  margin-top: 6px; max-height: 190px; overflow-y: auto; scrollbar-width: thin;
+  display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px;
+}
+.emo-grid button {
+  font-size: 21px; line-height: 1; padding: 6px 0; border-radius: 7px; cursor: pointer;
+  font-family: 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', sans-serif;
+  transition: background 100ms ease, transform 100ms ease;
+}
+.emo-grid button:hover { background: rgba(255,255,255,.08); transform: scale(1.15); }
+.text { font-family: inherit, 'Segoe UI Emoji'; }

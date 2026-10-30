@@ -84,7 +84,19 @@ lib.callback.register('spz-chat:send', function(source, data)
     end
 
     text = text and trim(text) or ''
-    if text == '' then return { ok = false, error = channel == 'dm' and 'Usage: /w <name> <message>' or 'Empty message' } end
+
+    -- GIF picker sends ":gif:<giphy id>". The URL is built server-side, so a
+    -- client can't make chat load an arbitrary image.
+    local gif = nil
+    local gifId = text:match('^:gif:(%w+)$')
+    if gifId then
+        if not (GiphyEnabled and GiphyEnabled()) then return { ok = false, error = 'GIFs are turned off.' } end
+        gif = GiphyUrl(gifId)
+        if not gif then return { ok = false, error = 'Bad GIF.' } end
+        text = ''
+    end
+
+    if text == '' and not gif then return { ok = false, error = channel == 'dm' and 'Usage: /w <name> <message>' or 'Empty message' } end
 
     -- ── Crew ────────────────────────────────────────────────────────────
     if channel == 'crew' then
@@ -92,7 +104,7 @@ lib.callback.register('spz-chat:send', function(source, data)
             return { ok = false, error = 'You are not in a crew.' }
         end
 
-        local payload = { channel = 'crew', from = username, crewTag = crewTag, avatar = avatar, text = text, ts = os.time() }
+        local payload = { channel = 'crew', from = username, crewTag = crewTag, avatar = avatar, text = text, gif = gif, ts = os.time() }
         local members = exports['spz-identity']:GetOnlineCrewMembers(profile.crew_id)
         for _, sid in ipairs(members) do
             TriggerClientEvent('spz-chat:receive', sid, payload)
@@ -118,13 +130,13 @@ lib.callback.register('spz-chat:send', function(source, data)
         local toName   = (toProfile and toProfile.username) or GetPlayerName(targetSource)
         local toAvatar = toProfile and toProfile.avatar_url or nil
 
-        TriggerClientEvent('spz-chat:receive', targetSource, { channel = 'dm', from = username, avatar = avatar, text = text, ts = os.time(), dir = 'in' })
-        TriggerClientEvent('spz-chat:receive', source, { channel = 'dm', from = toName, avatar = toAvatar, text = text, ts = os.time(), dir = 'out' })
+        TriggerClientEvent('spz-chat:receive', targetSource, { channel = 'dm', from = username, avatar = avatar, text = text, gif = gif, ts = os.time(), dir = 'in' })
+        TriggerClientEvent('spz-chat:receive', source, { channel = 'dm', from = toName, avatar = toAvatar, text = text, gif = gif, ts = os.time(), dir = 'out' })
         return { ok = true }
     end
 
     -- ── Global ──────────────────────────────────────────────────────────
-    local payload = { channel = 'global', from = username, crewTag = crewTag, avatar = avatar, text = text, ts = os.time() }
+    local payload = { channel = 'global', from = username, crewTag = crewTag, avatar = avatar, text = text, gif = gif, ts = os.time() }
     for _, pid in ipairs(GetPlayers()) do
         TriggerClientEvent('spz-chat:receive', tonumber(pid), payload)
     end

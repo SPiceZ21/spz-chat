@@ -18,6 +18,8 @@ client_scripts {
 }
 
 server_scripts {
+  'config_server.lua',   -- server only: API keys (never shared with players)
+  'server/giphy.lua',
   'server/main.lua',
 }
 
