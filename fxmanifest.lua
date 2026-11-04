@@ -26,12 +26,8 @@ server_scripts {
 
 -- ui_page 'ui/index.html'  -- drawn by spz-hud now (web/public/apps/spz-chat); uncomment + drop the shim to roll back
 
-files {
-  'ui/index.html',
-  'ui/style.css',
-  'ui/app.js',
-  'ui/fonts/*.ttf',
-}
+-- UI files are not shipped from here: spz-hud serves this resource's page
+-- (synced from ui/ by spz-hud/tools/sync-apps.mjs).
 
 dependencies {
     'spz-hud',
