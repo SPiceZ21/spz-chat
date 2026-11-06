@@ -200,8 +200,8 @@ end)
 -- them, and controls ended up split between the two. Any of those moments
 -- closes the box first.
 local function spectating()
-    if GetResourceState('spz-spectate') ~= 'started' then return false end
-    local ok, on = pcall(function() return exports['spz-spectate']:IsSpectating() end)
+    if GetResourceState('spz-races') ~= 'started' then return false end
+    local ok, on = pcall(function() return exports['spz-races']:IsSpectating() end)
     return ok and on == true
 end
 
